@@ -78,7 +78,7 @@ function handleMessage(bytes){
       case Message.JoinAccepted:{const token=r.str();const seat=r.u8();const l=readLobby(r);if(token!==joinToken)return;localSeat=seat;lobby=l;rules=l.rules;showLobby();status(`プレイヤー${seat+1}として接続しました`);break}
       case Message.LobbyState:lobby=readLobby(r);rules=lobby.rules;showLobby();break;
       case Message.Rules:rules=readRules(r);if(lobby)lobby.rules=rules;ready=false;showLobby();break;
-      case Message.Start:matchId=r.u32();rules=readRules(r);const order=r.bytes();$('lobbyCard').classList.add('hidden');$('gameCard').classList.remove('hidden');status('対局を同期しています…');setTimeout(()=>sendSnapshotRequest(),80);break;
+      case Message.Start:matchId=r.u32();rules=readRules(r);const order=r.bytes();$('lobbyCard').classList.add('hidden');$('gameCard').classList.remove('hidden');document.body.classList.add('game-active');$('gameRoom').textContent=room||'------';status('対局を同期しています…');setTimeout(()=>sendSnapshotRequest(),80);break;
       case Message.Snapshot:{const mid=r.u32();const mn=r.u16();const payload=r.bytes();if(mid!==matchId)return;moveNumber=mn;handleSnapshot(payload);break}
       case Message.GameEnd:{const mid=r.u32();const text=r.str();if(mid===matchId)status(text||'対局終了');break}
       case Message.Disconnect:status(r.str()||'通信が終了しました');break;
@@ -101,17 +101,27 @@ function readAction(r){return {kind:r.u8(),row:r.u8(),col:r.u8(),auxRow:decodeSi
 function decodeSigned(v){return v===255?-1:v}
 
 function showLobby(){
-  $('connectCard').classList.add('hidden');$('lobbyCard').classList.remove('hidden');$('seatLabel').textContent=localSeat>=0?`プレイヤー${localSeat+1}`:'接続中';if(!rules)return;const humans=(rules.participantTypes||[]).slice(0,rules.participantCount).filter(x=>x===0).length;$('rules').textContent=`${ModeNames[rules.modeIndex]||'対戦'} / ${rules.participantCount}人（人間${humans}・AI${rules.participantCount-humans}） / ${rules.boardSize}×${rules.boardSize}${rules.totalTimeSeconds>0?` / ${Math.round(rules.totalTimeSeconds/60)}分`:''}`;const mask=1<<localSeat;ready=!!(lobby.readyMask&mask);$('readyButton').textContent=ready?'準備取消':'準備完了';$('readyButton').onclick=()=>{sendReady(!ready)}
+  $('connectCard').classList.add('hidden');$('lobbyCard').classList.remove('hidden');$('seatLabel').textContent=localSeat>=0?`プレイヤー${localSeat+1}`:'接続中';if(!rules)return;const humans=(rules.participantTypes||[]).slice(0,rules.participantCount).filter(x=>x===0).length;$('rules').textContent=`${ModeNames[rules.modeIndex]||'対戦'} / ${rules.participantCount}人（人間${humans}・AI${rules.participantCount-humans}） / ${rules.boardSize}×${rules.boardSize}${rules.totalTimeSeconds>0?` / ${Math.round(rules.totalTimeSeconds/60)}分`:''}`;const mask=1<<localSeat;ready=!!(lobby.readyMask&mask);$('readyButton').textContent=ready?'準備取消':'準備完了';$('readyButton').onclick=()=>{const next=!ready;const mask=1<<localSeat;ready=next;if(next)lobby.readyMask|=mask;else lobby.readyMask&=~mask;$('readyButton').textContent=ready?'準備取消':'準備完了';sendReady(next)}
 }
 function renderState(){
   const s=currentState;if(!s)return;moveNumber=s.moveNo;$('moveLabel').textContent=`${moveNumber}手`;$('turnLabel').textContent=s.flags&1?'対局終了':`${DiscNames[s.currentDisc]||''}の手番`;
-  const myDisc=s.order[localSeat]||0;const p=myDisc?s.points[myDisc-1]:0;const ob=myDisc?s.obstacles[myDisc-1]:0;const ex=myDisc?s.expansion[myDisc-1]:0;$('resources').textContent=`あなた: ${DiscNames[myDisc]||`P${localSeat+1}`}　ポイント ${p}　障害物 ${ob}${s.flags&2?`　拡張 ${ex}`:''}`;
-  renderPointBar(s,myDisc);renderBoard(s);status((s.flags&1)?'対局終了':(seatForDisc(s,s.currentDisc)===localSeat?'あなたの手番です':'相手の手番です'));
+  const myDisc=discForSeat(localSeat);const p=myDisc?s.points[myDisc-1]:0;const ob=myDisc?s.obstacles[myDisc-1]:0;const ex=myDisc?s.expansion[myDisc-1]:0;$('resources').textContent=`あなた: ${DiscNames[myDisc]||`P${localSeat+1}`}　ポイント ${p}　障害物 ${ob}${s.flags&2?`　拡張 ${ex}`:''}`;
+  renderScores(s);renderPointBar(s,myDisc);renderBoard(s);status((s.flags&1)?'対局終了':(seatForDisc(s,s.currentDisc)===localSeat?'あなたの手番です':'相手の手番です'));
+}
+function renderScores(s){
+  const bar=$('scoreBar');if(!bar)return;bar.innerHTML='';
+  const counts=[0,0,0,0,0];for(const c of s.cells)if(c.disc>0&&c.disc<counts.length)counts[c.disc]++;
+  for(let seat=0;seat<s.playerCount;seat++){
+    const disc=discForSeat(seat);if(!disc)continue;const item=document.createElement('div');item.className='score-item';
+    if(disc===s.currentDisc)item.classList.add('active');
+    const left=document.createElement('span'),dot=document.createElement('span');dot.className=`score-disc ${['','black','white','red','blue'][disc]}`;left.appendChild(dot);left.append(`P${seat+1}${seat===localSeat?' あなた':''}`);
+    const count=document.createElement('span');count.className='score-count';count.textContent=counts[disc]||0;item.append(left,count);bar.appendChild(item);
+  }
 }
 function renderPointBar(s,myDisc){const bar=$('pointBar');bar.innerHTML='';if(!(s.flags&16)||!myDisc)return;for(let slot=0;slot<4;slot++){const b=document.createElement('button');const ability=s.pointAbilities[slot];const cost=s.pointCosts[slot];b.textContent=`${AbilityNames[ability]||'特殊'} ${cost}P`;b.disabled=s.points[myDisc-1]<cost||seatForDisc(s,s.currentDisc)!==localSeat;b.classList.toggle('selected',selectedPointSlot===slot);b.onclick=()=>requestPointSlot(slot);bar.appendChild(b)}}
 function requestPointSlot(slot,srcRow=-1,srcCol=-1){selectedPointSlot=slot;const bytes=new Uint8Array([81,80,65,49,slot,srcRow<0?255:srcRow,srcCol<0?255:srcCol]);sendSnapshotRequest(bytes);status('特殊操作を取得しています…')}
 function renderBoard(s){
-  const board=$('board');board.innerHTML='';const map=new Map(s.cells.map(c=>[`${c.row},${c.col}`,c]));let minR=0,maxR=s.boardSize-1,minC=0,maxC=s.boardSize-1;if(s.flags&2){const coords=s.cells.filter(c=>c.flags&4);if(coords.length){minR=Math.max(0,Math.min(...coords.map(c=>c.row))-1);maxR=Math.min(s.boardSize-1,Math.max(...coords.map(c=>c.row))+1);minC=Math.max(0,Math.min(...coords.map(c=>c.col))-1);maxC=Math.min(s.boardSize-1,Math.max(...coords.map(c=>c.col))+1)}}const cols=maxC-minC+1;board.style.gridTemplateColumns=`repeat(${cols},max-content)`;
+  const board=$('board');board.innerHTML='';const map=new Map(s.cells.map(c=>[`${c.row},${c.col}`,c]));let minR=0,maxR=s.boardSize-1,minC=0,maxC=s.boardSize-1;if(s.flags&2){const coords=s.cells.filter(c=>c.flags&4);if(coords.length){minR=Math.max(0,Math.min(...coords.map(c=>c.row))-1);maxR=Math.min(s.boardSize-1,Math.max(...coords.map(c=>c.row))+1);minC=Math.max(0,Math.min(...coords.map(c=>c.col))-1);maxC=Math.min(s.boardSize-1,Math.max(...coords.map(c=>c.col))+1)}}const cols=maxC-minC+1;document.body.classList.toggle('large-board',cols>=12);board.style.setProperty('--board-cols',cols);board.style.gridTemplateColumns=`repeat(${cols},minmax(0,1fr))`;
   let activeActions=s.actions||[], sourceSet=new Set();if(pointActions){if(pointActions.mode===1)for(const q of pointActions.sources)sourceSet.add(`${q.row},${q.col}`);else activeActions=pointActions.actions}
   const legalMap=new Map();for(const a of activeActions){const k=`${a.row},${a.col}`;if(!legalMap.has(k))legalMap.set(k,[]);legalMap.get(k).push(a)}
   for(let r=minR;r<=maxR;r++)for(let c=minC;c<=maxC;c++){const key=`${r},${c}`,rec=map.get(key),cell=document.createElement('button');cell.className='cell';if((s.flags&2)&&(!rec||!(rec.flags&4)))cell.classList.add('inactive');if(legalMap.has(key))cell.classList.add('legal');if(sourceSet.has(key))cell.classList.add('source');if(rec){if(rec.disc){const d=document.createElement('span');d.className=`disc ${['','black','white','red','blue'][rec.disc]}`;cell.appendChild(d)}if(rec.flags&2){const o=document.createElement('span');o.className='obstacle';cell.appendChild(o)}if(rec.flags&1){const b=document.createElement('span');b.className='bomb';b.textContent='●';cell.appendChild(b)}if(rec.reservation){const rv=document.createElement('span');rv.className='reservation';cell.appendChild(rv)}}cell.onclick=()=>onCell(r,c,legalMap.get(key)||[],sourceSet.has(key));board.appendChild(cell)}
@@ -119,7 +129,8 @@ function renderBoard(s){
 function onCell(row,col,actions,isSource){if(isSource&&pointActions&&pointActions.mode===1){requestPointSlot(pointActions.slot,row,col);return}if(!actions.length)return;if(actions.length===1){sendMove(actions[0]);pointActions=null;return}showActionSheet(actions)}
 function showActionSheet(actions){const sh=$('actionSheet');sh.innerHTML='';sh.classList.remove('hidden');for(const a of actions){const b=document.createElement('button');b.textContent=moveLabel(a);b.onclick=()=>{sh.classList.add('hidden');sendMove(a)};sh.appendChild(b)}}
 function moveLabel(a){if(a.kind===0)return'駒を置く';if(a.kind===1)return'障害物';const n={10:'敵駒消去',11:'二連続',12:'十字変換',13:'周囲変換',14:'障害物',15:'予約',16:'自駒移動',17:'リスク二連',18:'自由配置'};return n[a.kind]||`特殊 ${a.kind}`}
-function seatForDisc(s,disc){return s.order.indexOf(disc)}
+function discForSeat(seat){return seat>=0&&seat<4?seat+1:0}
+function seatForDisc(s,disc){return disc>=1&&disc<=4?disc-1:-1}
 
 class WebBluetoothTransport {
   constructor(){this.device=null;this.server=null;this.rx=null;this.tx=null;this.writeQueue=Promise.resolve()}
