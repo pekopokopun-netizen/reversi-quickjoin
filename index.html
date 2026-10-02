@@ -31,12 +31,17 @@
       <button id="readyButton" class="primary">準備完了</button>
     </section>
 
-    <section id="gameCard" class="card game hidden">
-      <div class="row"><strong id="turnLabel">対局</strong><span id="moveLabel">0手</span></div>
+    <section id="gameCard" class="game-screen hidden">
+      <div class="game-topbar">
+        <div><div class="eyebrow">QUICK MATCH</div><strong id="turnLabel">対局</strong></div>
+        <div class="game-meta"><span id="moveLabel">0手</span><span id="gameRoom">------</span></div>
+      </div>
+      <div id="scoreBar" class="score-bar"></div>
       <div id="resources" class="resources"></div>
       <div id="pointBar" class="point-bar"></div>
-      <div id="boardScroller" class="board-scroller"><div id="board" class="board"></div></div>
+      <div class="board-shell"><div id="boardScroller" class="board-scroller"><div id="board" class="board"></div></div></div>
       <div id="actionSheet" class="action-sheet hidden"></div>
+      <div class="game-footer"><span>Chrome ゲスト</span><span id="connectionBadge">Bluetooth</span></div>
     </section>
 
     <div id="status" class="status">ホスト端末へ直接参加します</div>
