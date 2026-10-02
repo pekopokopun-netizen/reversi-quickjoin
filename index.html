@@ -25,13 +25,15 @@
       <p id="supportNote" class="note"></p>
     </section>
 
-    <section id="lobbyCard" class="card hidden">
+    <section id="lobbyCard" class="card lobby-card hidden">
+      <button id="refreshButton" class="refresh-icon" aria-label="更新" title="更新"><span aria-hidden="true">↻</span></button>
       <div class="row"><strong>ロビー</strong><span id="seatLabel">未接続</span></div>
       <div id="rules" class="rules"></div>
       <button id="readyButton" class="primary">準備完了</button>
     </section>
 
     <section id="gameCard" class="game-screen hidden">
+      <button id="gameRefreshButton" class="refresh-icon game-refresh" aria-label="更新" title="更新"><span aria-hidden="true">↻</span></button>
       <div class="game-topbar">
         <div><div class="eyebrow">QUICK MATCH</div><strong id="turnLabel">対局</strong></div>
         <div class="game-meta"><span id="moveLabel">0手</span><span id="gameRoom">------</span></div>
