@@ -5,7 +5,7 @@ const SERVICE = '7c2d5a11-4f8e-4a98-9e1c-4f4b5a1e0001';
 const RX = '7c2d5a11-4f8e-4a98-9e1c-4f4b5a1e0002';
 const TX = '7c2d5a11-4f8e-4a98-9e1c-4f4b5a1e0003';
 const PROTOCOL_VERSION = 6;
-const Message = { JoinRequest:1, JoinAccepted:2, LobbyState:3, Rules:4, Ready:5, Start:6, Move:7, GameEnd:8, Disconnect:9, SnapshotRequest:10, Snapshot:11, Stamp:12, ConsensusRequest:13, ConsensusVote:14, ConsensusCommit:15 };
+const Message = { JoinRequest:1, JoinAccepted:2, LobbyState:3, Rules:4, Ready:5, Start:6, Move:7, GameEnd:8, Disconnect:9, SnapshotRequest:10, Snapshot:11, Stamp:12, ConsensusRequest:13, ConsensusVote:14, ConsensusCommit:15, SyncRequest:16 };
 const AbilityNames = ['敵駒消去','二連続配置','十字変換','周囲変換','障害物配置','予約','自駒移動','リスク二連','自由配置'];
 const ModeNames = ['通常対戦','負けオセロ','爆弾オセロ','障害物オセロ','ポイントオセロ','拡張オセロ','ミックスモード'];
 const DiscNames = ['','黒','白','赤','青'];
@@ -60,6 +60,7 @@ function encodeMessage(type, fill){
 function sendJoin(){sendPayload(encodeMessage(Message.JoinRequest,w=>{w.str(room);w.str(joinToken)}))}
 function sendReady(value){sendPayload(encodeMessage(Message.Ready,w=>w.bool(value)))}
 function sendMove(a){sendPayload(encodeMessage(Message.Move,w=>{w.u32(matchId);w.u16(moveNumber+1);w.u8(a.row);w.u8(a.col);w.u8(a.kind);w.i8(a.auxRow??-1);w.i8(a.auxCol??-1);w.i8(a.option??-1);w.bool(a.kind===1);w.bytes(new Uint8Array())}))}
+function sendSyncRequest(){if(localSeat<1)return;sendPayload(encodeMessage(Message.SyncRequest,w=>w.u32(matchId)));status('ホストの状態を更新しています…')}
 function sendSnapshotRequest(extra){sendPayload(encodeMessage(Message.SnapshotRequest,w=>{w.u32(matchId);w.u16(moveNumber);w.bytes(extra||new Uint8Array())}))}
 function sendConsensusVote(id,yes){sendPayload(encodeMessage(Message.ConsensusVote,w=>{w.u32(id);w.bool(yes)}))}
 
@@ -101,7 +102,7 @@ function readAction(r){return {kind:r.u8(),row:r.u8(),col:r.u8(),auxRow:decodeSi
 function decodeSigned(v){return v===255?-1:v}
 
 function showLobby(){
-  $('connectCard').classList.add('hidden');$('lobbyCard').classList.remove('hidden');$('seatLabel').textContent=localSeat>=0?`プレイヤー${localSeat+1}`:'接続中';if(!rules)return;const humans=(rules.participantTypes||[]).slice(0,rules.participantCount).filter(x=>x===0).length;$('rules').textContent=`${ModeNames[rules.modeIndex]||'対戦'} / ${rules.participantCount}人（人間${humans}・AI${rules.participantCount-humans}） / ${rules.boardSize}×${rules.boardSize}${rules.totalTimeSeconds>0?` / ${Math.round(rules.totalTimeSeconds/60)}分`:''}`;const mask=1<<localSeat;ready=!!(lobby.readyMask&mask);$('readyButton').textContent=ready?'準備取消':'準備完了';$('readyButton').onclick=()=>{const next=!ready;const mask=1<<localSeat;ready=next;if(next)lobby.readyMask|=mask;else lobby.readyMask&=~mask;$('readyButton').textContent=ready?'準備取消':'準備完了';sendReady(next)}
+  $('connectCard').classList.add('hidden');$('lobbyCard').classList.remove('hidden');$('seatLabel').textContent=localSeat>=0?`プレイヤー${localSeat+1}`:'接続中';$('refreshButton').onclick=sendSyncRequest;$('gameRefreshButton').onclick=sendSyncRequest;if(!rules)return;const humans=(rules.participantTypes||[]).slice(0,rules.participantCount).filter(x=>x===0).length;$('rules').textContent=`${ModeNames[rules.modeIndex]||'対戦'} / ${rules.participantCount}人（人間${humans}・AI${rules.participantCount-humans}） / ${rules.boardSize}×${rules.boardSize}${rules.totalTimeSeconds>0?` / ${Math.round(rules.totalTimeSeconds/60)}分`:''}`;const mask=1<<localSeat;ready=!!(lobby.readyMask&mask);$('readyButton').textContent=ready?'準備取消':'準備完了';$('readyButton').onclick=()=>{const next=!ready;const mask=1<<localSeat;ready=next;if(next)lobby.readyMask|=mask;else lobby.readyMask&=~mask;$('readyButton').textContent=ready?'準備取消':'準備完了';sendReady(next)}
 }
 function renderState(){
   const s=currentState;if(!s)return;moveNumber=s.moveNo;$('moveLabel').textContent=`${moveNumber}手`;$('turnLabel').textContent=s.flags&1?'対局終了':`${DiscNames[s.currentDisc]||''}の手番`;
