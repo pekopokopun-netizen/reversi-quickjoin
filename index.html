@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#e0e0e0">
+  <title>リバーシ 一時参加</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="eyebrow">QUICK JOIN</div>
+      <h1>リバーシ</h1>
+      <div id="room" class="room">合言葉 ------</div>
+    </header>
+
+    <section id="connectCard" class="card">
+      <p id="connectText">この端末をゲストとして一時参加させます。アプリと同じルール・盤面で対戦できます。</p>
+      <div id="roomInputWrap" class="room-input-wrap hidden">
+        <label for="roomInput">合言葉</label>
+        <input id="roomInput" class="room-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="6桁" aria-label="6桁の合言葉">
+      </div>
+      <button id="connectButton" class="primary">ホストへ参加</button>
+      <p id="supportNote" class="note"></p>
+    </section>
+
+    <section id="lobbyCard" class="card hidden">
+      <div class="row"><strong>ロビー</strong><span id="seatLabel">未接続</span></div>
+      <div id="rules" class="rules"></div>
+      <button id="readyButton" class="primary">準備完了</button>
+    </section>
+
+    <section id="gameCard" class="card game hidden">
+      <div class="row"><strong id="turnLabel">対局</strong><span id="moveLabel">0手</span></div>
+      <div id="resources" class="resources"></div>
+      <div id="pointBar" class="point-bar"></div>
+      <div id="boardScroller" class="board-scroller"><div id="board" class="board"></div></div>
+      <div id="actionSheet" class="action-sheet hidden"></div>
+    </section>
+
+    <div id="status" class="status">ホスト端末へ直接参加します</div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
